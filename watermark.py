@@ -35,8 +35,9 @@ OPACITY = 0.35
 # OR set to a string to define ranges (1-based, inclusive):
 # Example: "2-31, 55, 77, 100-110"
 # This will watermark pages 2 through 31, page 55, page 77, and pages 100 through 110.
-PAGES_TO_WATERMARK = "2-31, 574-695" 
+PAGES_TO_WATERMARK = "2-31, 574-695"
 # ---------------------
+
 
 def parse_page_ranges(ranges_str):
     """
@@ -45,14 +46,14 @@ def parse_page_ranges(ranges_str):
     """
     if not ranges_str:
         return None
-    
+
     indices = set()
-    parts = [p.strip() for p in ranges_str.split(',')]
-    
+    parts = [p.strip() for p in ranges_str.split(",")]
+
     for part in parts:
-        if '-' in part:
+        if "-" in part:
             try:
-                start_str, end_str = part.split('-')
+                start_str, end_str = part.split("-")
                 start = int(start_str)
                 end = int(end_str)
                 # Convert 1-based to 0-based; inclusive end means range(start-1, end)
@@ -66,8 +67,9 @@ def parse_page_ranges(ranges_str):
                 indices.add(int(part) - 1)
             except ValueError:
                 print(f"Warning: Invalid page number '{part}'. Ignoring.")
-                
+
     return indices
+
 
 def make_watermark_pdf(text):
     """
@@ -77,7 +79,7 @@ def make_watermark_pdf(text):
     packet = io.BytesIO()
     # Create a new PDF canvas
     c = canvas.Canvas(packet, pagesize=letter)
-    
+
     # Register custom font if provided
     if CUSTOM_FONT_PATH and os.path.exists(CUSTOM_FONT_PATH):
         try:
@@ -85,23 +87,24 @@ def make_watermark_pdf(text):
         except Exception as e:
             print(f"Warning: Could not register font {CUSTOM_FONT_NAME}: {e}")
             print("Falling back to default font.")
-    
+
     # Set font and transparency
     c.setFont(FONT_NAME, FONT_SIZE)
     c.setFillGray(0, alpha=OPACITY)
-    
+
     # Calculate position: Lower-right corner with a small margin
     width, height = letter
     x = width - 40  # 40 points from the right edge
-    y = 30          # 30 points from the bottom edge
-    
+    y = 30  # 30 points from the bottom edge
+
     # Draw the text aligned to the right at the specified position
     c.drawRightString(x, y, text)
-    
+
     # Finalize the PDF page and save it to the buffer
     c.save()
     packet.seek(0)
     return packet
+
 
 def apply_watermark(input_pdf, output_pdf):
     """
@@ -111,10 +114,10 @@ def apply_watermark(input_pdf, output_pdf):
     print(f"Opening input file: {input_pdf}")
     # Load the input PDF using pikepdf
     pdf = pikepdf.Pdf.open(input_pdf)
-    
+
     # Generate the watermark PDF stream in memory
     watermark_stream = make_watermark_pdf(WATERMARK_TEXT)
-    
+
     # Open the generated watermark PDF
     watermark_pdf = pikepdf.Pdf.open(watermark_stream)
     watermark_page = watermark_pdf.pages[0]
@@ -123,7 +126,9 @@ def apply_watermark(input_pdf, output_pdf):
     pages_to_process = PAGES_TO_WATERMARK
     if isinstance(pages_to_process, str):
         pages_to_process = parse_page_ranges(pages_to_process)
-        print(f"Parsed page ranges: {sorted(list(pages_to_process)) if pages_to_process else 'None'}")
+        print(
+            f"Parsed page ranges: {sorted(list(pages_to_process)) if pages_to_process else 'None'}"
+        )
 
     # Iterate over all pages in the input PDF
     print("Applying watermarks...")
@@ -138,6 +143,7 @@ def apply_watermark(input_pdf, output_pdf):
     print(f"Saving to: {output_pdf}")
     pdf.save(output_pdf)
     print("Done.")
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
