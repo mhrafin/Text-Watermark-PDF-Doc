@@ -1,3 +1,5 @@
 .venv
 __pycache__
 *.pdf
+openspec/*
+.opencode/*
