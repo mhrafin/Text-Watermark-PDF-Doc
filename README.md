@@ -1,6 +1,6 @@
 # Text-Watermark-PDF-Doc
 
-Add text watermarks to PDF files using Python. Configure the text, font, opacity, and page ranges, then run from the command line.
+Add text watermarks to PDF files via a proper CLI. No more editing source constants — pass flags per run.
 
 ## Requirements
 
@@ -15,6 +15,14 @@ Add text watermarks to PDF files using Python. Configure the text, font, opacity
 git clone <repo-url>
 cd Text-Watermark-PDF-Doc
 uv sync
+```
+
+This installs the `watermark` command (from `pyproject.toml` `[project.scripts]`) alongside `python watermark.py` and `python -m watermark`:
+
+```bash
+.venv/bin/watermark --help
+# or
+uv run watermark --help
 ```
 
 ### Using pip
@@ -34,76 +42,111 @@ source .venv/bin/activate
 ## Usage
 
 ```bash
-python watermark.py <input.pdf> <output.pdf>
+python watermark.py <input.pdf> [output.pdf] [options]
+# or after uv sync:
+watermark <input.pdf> [output.pdf] [options]
 ```
 
-Example:
+- `input` — required input PDF path.
+- `output` — optional output path. Defaults to `<input>_watermarked.pdf` beside the input (e.g., `my.pdf` → `my_watermarked.pdf`).
+
+Basic examples:
 
 ```bash
-python watermark.py my_document.pdf watermarked_doc.pdf
+# Simple: default text, all pages, lower-right corner
+python watermark.py my_document.pdf
+
+# Custom text and output
+python watermark.py my_document.pdf watermarked_doc.pdf --text "Draft"
+
+# Page ranges, position, tiled diagonal, opacity
+python watermark.py book.pdf --text "Personal use only" --pages "2-10,127-132" --position center --angle 45 --opacity 0.35
+python watermark.py book.pdf --position tile --angle 30 --text "Confidential"
+python watermark.py book.pdf --position top-left --margin 24 --font Amiri-Regular.ttf --font-size 12
+
+# Dry-run preview (no file written)
+python watermark.py book.pdf --pages "1-3,5" --dry-run
+
+# My Usecases
+watermark "/media/raf/Personal/Books/English/How-to-Make-Notes-and-Write---Allosso-Dan-jzdq8.pdf" output.pdf --font-size 8 --margin 20
 ```
 
-## Configuration
+Use `--help` for full flag list and defaults, `--version` for the package version.
 
-All settings live at the top of `watermark.py` (lines 12–38). Edit the file to change them.
-
-| Setting | Default | Description |
-|---|---|---|
-| `WATERMARK_TEXT` | `"Personal use only..."` | Watermark text content |
-| `FONT_SIZE` | `9` | Font size in points |
-| `FONT_NAME` | `"Amiri-Regular"` | Font family name |
-| `CUSTOM_FONT_PATH` | `"Amiri-Regular.ttf"` | Path to a `.ttf` font file, or `None` to use standard fonts |
-| `CUSTOM_FONT_NAME` | `"Amiri-Regular"` | Name used when registering the custom font |
-| `OPACITY` | `0.35` | Opacity from `0.0` (invisible) to `1.0` (solid) |
-| `PAGES_TO_WATERMARK` | `"2-31, 574-695"` | Pages to watermark. Accepts three types of values (see below) |
-
-### Page range values
-
-Set `PAGES_TO_WATERMARK` to one of:
-
-- `None` — watermarks **every** page.
-- A **list** of 0-based indices, e.g. `[0, 2, 4]`.
-- A **string** of 1-based ranges, e.g. `"1-3, 5, 10-12"` (inclusive).
-
-### Standard fonts
-
-Set `CUSTOM_FONT_PATH = None` and `FONT_NAME` to any standard PDF font:
-
-`"Helvetica"`, `"Times-Roman"`, `"Courier"`, `"Helvetica-Bold"`, `"Times-BoldItalic"`, etc.
-
-### Custom TTF fonts
-
-Place your `.ttf` file in the project root and set:
-
-```python
-CUSTOM_FONT_PATH = "YourFont.ttf"
-CUSTOM_FONT_NAME = "YourFont"
-FONT_NAME = "YourFont"
+```bash
+python watermark.py --help
+watermark --version   # 0.1.0
 ```
 
-A bundled Arabic-style font (`Amiri-Regular.ttf`) is included.
+## Configuration (flags)
+
+All former source constants are now flags with validated defaults:
+
+
+| Flag                                                                 | Default                                        | Description                                                                                                                                      |
+| -------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--text TEXT`                                                        | `"Personal use only. No commercial printing."` | Watermark text                                                                                                                                   |
+| `--font PATH`                                                        | `Helvetica`                                    | Path to a`.ttf` file. Name derived from file stem; falls back to Helvetica with a warning if registration fails. Omit to use standard PDF fonts. |
+| `--font-size FLOAT`                                                  | `9`                                            | Font size in points (`>0`)                                                                                                                       |
+| `--opacity FLOAT`                                                    | `0.5`                                          | Opacity`0.0`–`1.0`                                                                                                                              |
+| `--pages RANGES`                                                     | all pages                                      | 1-based ranges, e.g.`"2-10,127-132"`, `"1-3, 5, 10-12"`                                                                                          |
+| `--position {lower-right,lower-left,top-right,top-left,center,tile}` | `lower-right`                                  | Placement.`tile` repeats diagonally across the page and ignores `--margin`.                                                                      |
+| `--angle FLOAT`                                                      | `0.0`                                          | Rotation in degrees (around text center; per-tile for`tile`)                                                                                     |
+| `--margin FLOAT`                                                     | `36.0`                                         | Margin in points for corner/center (`≥0`, ignored for `tile`)                                                                                   |
+| `--dry-run`                                                          | off                                            | Preview targeted pages and output path without writing                                                                                           |
+| `output` positional                                                  | `<input>_watermarked.pdf`                      | Output path when omitted                                                                                                                         |
+
+### Page range examples
+
+`--pages "2-31, 55, 77, 100-110"` → pages 2–31, 55, 77, 100–110 (1-based inclusive). Invalid tokens are warned and ignored; out-of-range indices are silently skipped.
+
+### Fonts
+
+**Standard PDF fonts** — omit `--font` to use `Helvetica` (or other built-ins are available if you pass a standard name via `--font` without a file — fallback logic will warn and use Helvetica).
+
+**Custom TTF** — place your `.ttf` in the project root (or any path) and pass it:
+
+```bash
+python watermark.py in.pdf --font Amiri-Regular.ttf --text "مثال"
+```
+
+A bundled Arabic-style font (`Amiri-Regular.ttf`) is included. The font name is derived from the file stem (`Amiri-Regular`).
+
+### Placement
+
+Corner positions are placed via a minimal overlay sized to the text (`stringWidth` + padding) and `pikepdf.Page.add_overlay(..., rect)` in real page coordinates, so the same `--margin` works on letter, A4, and mixed-size PDFs. `center` is centered; `tile` draws a rotated grid on a letter-sized canvas and stretches uniformly (density-based).
 
 ## How it works
 
-1. **pikepdf** reads the input PDF.
-2. **ReportLab** generates a single-page PDF overlay with the watermark text.
-3. Each page in the input that matches `PAGES_TO_WATERMARK` gets the overlay applied via `page.add_overlay()`.
-4. The result is saved to the output path.
+1. **argparse** parses `input`/`output` and all flags (with validation).
+2. **ReportLab** generates a watermark PDF overlay — minimal rect for corners/center, or a tiled letter-sized grid for `tile`.
+3. **pikepdf** opens the input, adds the overlay via `page.add_overlay()` with a per-page `rect` (from page `MediaBox`, `--margin`, and text-measured size) on pages matching `--pages`, and saves to the output path.
 
-The watermark is placed in the lower-right corner (40 pt from the right edge, 30 pt from the bottom), right-aligned.
+No background rectangle is drawn — opacity is via `setFillGray(0, alpha=…)` so the page shows through.
 
 ## Project structure
 
 ```
 Text-Watermark-PDF-Doc/
-├── watermark.py           # Main script
+├── watermark.py           # CLI + placement engine
+├── tests/
+│   └── test_watermark.py  # unit tests for parsing, placement, and CLI validation
 ├── Amiri-Regular.ttf      # Bundled custom font (optional)
-├── pyproject.toml         # Project metadata & pinned deps
+├── pyproject.toml         # Project metadata, pinned deps, and [project.scripts] entry point
 ├── uv.lock                # Lockfile (uv)
 └── .gitignore
+```
+
+## Testing
+
+```bash
+.venv/bin/python -m unittest tests.test_watermark -v
+# or with pytest if installed:
+uv run pytest -q
 ```
 
 ## Dependencies
 
 - [pikepdf](https://github.com/pikepdf/pikepdf) — PDF reading/writing
 - [reportlab](https://www.reportlab.com/) — PDF generation for the watermark overlay
+- `argparse` (stdlib) — CLI
